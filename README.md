@@ -19,6 +19,7 @@ Este proyecto incluye un agente desarrollado en GO que recolecta información de
 - `agent.exe`: Código del agente en Go que recolecta información del sistema operativo Windows.
 - `app.py`: Código de la API en Python que recibe y almacena la información.
 - `requirements.txt`: Archivo que contiene las dependencias necesarias para ejecutar la API.
+- `agent.go`: Archivo con código de agente para Linux y Windows.
 
 ## Instalación
 
