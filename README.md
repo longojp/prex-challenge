@@ -116,7 +116,7 @@ Detalles prex-linux
 
 ![image](https://github.com/user-attachments/assets/9355752f-15eb-4b83-b881-ebc75d3df59d)
 
-## Evidencia de Solicitud CURL a la API desde Instancia API
+## Evidencia de Solicitud CURL desde Instancia API
 
 ![image](https://github.com/user-attachments/assets/f11e44f9-dff7-4d96-a7f3-9c6281b20a0a)
 
