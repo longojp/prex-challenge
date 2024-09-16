@@ -1,0 +1,176 @@
+package main
+
+import (
+    "bytes"
+    "crypto/tls"
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
+    "log"
+    "net/http"
+    "os/exec"
+    "runtime"
+    "strings"
+)
+
+// info
+type SystemInfo struct {
+    ServerName     string   `json:"server_name"`
+    CPUInfo        string   `json:"cpu_info"`
+    Processes      []string `json:"processes"`
+    Users          []string `json:"users"`
+    OSName         string   `json:"os_name"`
+    OSVersion      string   `json:"os_version"`
+    OSArchitecture string   `json:"os_architecture"`
+}
+
+// Fun nombre server
+func getServerName() string {
+    out, err := exec.Command("hostname").Output()
+    if err != nil {
+        log.Fatalf("Error obteniendo el nombre del servidor: %v", err)
+    }
+    return strings.TrimSpace(string(out))
+}
+
+// Fun obtener info procesador
+func getCPUInfo() string {
+    if runtime.GOOS == "windows" {
+        out, err := exec.Command("wmic", "cpu", "get", "name").Output()
+        if err != nil {
+            log.Fatalf("Error obteniendo información de procesador win: %v", err)
+        }
+        lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+        if len(lines) > 1 {
+            return strings.TrimSpace(lines[1])
+        }
+        return "Desconocido"
+    } else {
+        out, err := exec.Command("lscpu").Output()
+        if err != nil {
+            log.Fatalf("Error obteniendo información de procesador linux: %v", err)
+        }
+        return strings.TrimSpace(string(out))
+    }
+}
+
+// Fun procesos corriendo
+func getProcesses() []string {
+    if runtime.GOOS == "windows" {
+        out, err := exec.Command("tasklist").Output()
+        if err != nil {
+            log.Fatalf("Error obteniendo la lista de procesos en win: %v", err)
+        }
+        processes := strings.Split(strings.TrimSpace(string(out)), "\n")
+        return processes[1:] // Excluir la primera línea que es el encabezado
+    } else {
+        out, err := exec.Command("ps", "-e").Output()
+        if err != nil {
+            log.Fatalf("Error obteniendo la lista de procesos en Linux: %v", err)
+        }
+        processes := strings.Split(strings.TrimSpace(string(out)), "\n")
+        return processes[1:] // Excluir la primera linea
+    }
+}
+
+// Fun usuarios sesión abierta
+func getUsers() []string {
+    if runtime.GOOS == "windows" {
+        out, err := exec.Command("qwinsta").Output()
+        if err != nil {
+            log.Printf("Error obteniendo la lista de usuarios en windows: %v", err)
+            return []string{"No se pudo obtener la lista de usuarios"}
+        }
+        users := strings.Split(strings.TrimSpace(string(out)), "\n")
+        var cleanedUsers []string
+        for _, user := range users[1:] {
+            cleanedUser := strings.Fields(user)
+            if len(cleanedUser) >= 4 && cleanedUser[1] != "65536" && cleanedUser[0] != "rdp-tcp" && cleanedUser[0] != "services" {
+                cleanedUsers = append(cleanedUsers, cleanedUser[1]) // solo el nombre del usuario
+            }
+        }
+        return cleanedUsers
+    } else {
+        out, err := exec.Command("who").Output()
+        if err != nil {
+            log.Printf("Error obteniendo la lista de usuarios en linux: %v", err)
+            return []string{"No se pudo obtener la lista de usuarios"}
+        }
+        users := strings.Split(strings.TrimSpace(string(out)), "\n")
+        return users
+    }
+}
+
+// Func nombre y versión sistema operativo
+func getOSInfo() (string, string) {
+    if runtime.GOOS == "windows" {
+        out, err := exec.Command("wmic", "os", "get", "Caption").Output()
+        if err != nil {
+            log.Fatalf("Error obteniendo información del sistema operativo en windows: %v", err)
+        }
+        lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+        if len(lines) > 1 {
+            return "Windows", strings.TrimSpace(lines[1])
+        }
+        return "Windows", "Version desconocida"
+    } else {
+        out, err := exec.Command("lsb_release", "-d").Output()
+        if err != nil {
+            log.Fatalf("Error obteniendo información del sistema operativo en linux: %v", err)
+        }
+        return strings.TrimSpace(string(out)), runtime.GOARCH
+    }
+}
+
+// Func enviar datos API Https
+func sendData(data SystemInfo) {
+    jsonData, err := json.MarshalIndent(data, "", "  ") // Formateo del JSON
+    if err != nil {
+        log.Fatalf("Error al serializar los datos a JSON: %v", err)
+    }
+
+    //Permitir cert autofirmados
+    httpClient := &http.Client{
+        Transport: &http.Transport{
+            TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // Permitir cert autofirmado
+        },
+    }
+
+    // enviar datos API Https
+    resp, err := httpClient.Post("https://172.31.91.29:8080/collect", "application/json", bytes.NewBuffer(jsonData)) // Cambiado a HTTPS
+    if err != nil {
+        log.Fatalf("Error al enviar los datos a la API: %v", err)
+    }
+
+    defer resp.Body.Close()
+
+    body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        log.Fatalf("Error al leer la respuesta de la API: %v", err)
+    }
+
+    fmt.Println("Respuesta de la API:", string(body))
+}
+
+func main() {
+    // Recolectar la información del sistema
+    serverName := getServerName()
+    cpuInfo := getCPUInfo()
+    processes := getProcesses()
+    users := getUsers()
+    osName, osVersion := getOSInfo()
+
+    // Crear el struct con la información recolectada
+    systemInfo := SystemInfo{
+        ServerName:     serverName,
+        CPUInfo:        cpuInfo,
+        Processes:      processes,
+        Users:          users,
+        OSName:         osName,
+        OSVersion:      osVersion,
+        OSArchitecture: runtime.GOARCH, // Agregamos la arquitectura del sistema
+    }
+
+    // Enviar datos API
+    sendData(systemInfo)
+}
