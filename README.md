@@ -120,6 +120,8 @@ Detalles prex-linux
 
 ![image](https://github.com/user-attachments/assets/f11e44f9-dff7-4d96-a7f3-9c6281b20a0a)
 
+![image](https://github.com/user-attachments/assets/669fe960-2ea5-4bf1-88ed-10c740569a22)
+
 
 
 
