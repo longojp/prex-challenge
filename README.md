@@ -6,7 +6,7 @@ Este proyecto incluye un agente desarrollado en GO que recolecta información de
 
 ### Agente (Go)
 
-- **Go 1.16** o superior.
+- **Go 1.23** o superior.
 
 ### API (Python)
 
